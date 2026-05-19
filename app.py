@@ -1,12 +1,12 @@
 import matplotlib
-matplotlib.use('Agg')  # Backend no-interactiu: evita warnings de ScriptRunContext
+matplotlib.use('Agg')  # non-interactive backend: avoids ScriptRunContext warnings
 
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
-# ── Configuració pàgina ──────────────────────────────────────────────────────
+# page config
 st.set_page_config(
     page_title="Convertidors DC/DC",
     layout="wide",
@@ -108,9 +108,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SIDEBAR
-# ══════════════════════════════════════════════════════════════════════════════
+# sidebar
 st.sidebar.header("⚙️ Entrada de dades")
 
 topo = st.sidebar.selectbox("Topologia", ["Buck", "Boost", "Buck-Boost"])
@@ -128,8 +126,8 @@ tipus = st.sidebar.selectbox(
 
 st.sidebar.divider()
 
-# ── Inputs dinàmics ───────────────────────────────────────────────────────────
-deduced_info = {}  # per mostrar els valors deduïts
+# dynamic inputs depending on problem type
+deduced_info = {}  # stores derived values to display as info banner
 
 if tipus == "Clàssic (Vi, D, L, C, R, f)":
     Vi     = st.sidebar.number_input("Tensió entrada Vᵢ (V)", value=24.0, step=1.0, min_value=0.1)
@@ -194,7 +192,7 @@ elif tipus == "Per Resistència (Vi, Vo, R, ΔIL, f, C)":
     else:
         D = np.clip(Vo_t / (Vi + Vo_t), 0.05, 0.95)
         IL_med_t = (Vo_t/R) / (1-D)
-    # IL_min = dIL_pc% de IL_med → ΔIL = 2*(IL_med - IL_min) = 2*IL_med*(1 - dIL_pc/100)
+    # IL_min = dIL_pc% of IL_med → ΔIL = 2*(IL_med - IL_min) = 2*IL_med*(1 - dIL_pc/100)
     dIL_val = 2 * IL_med_t * (1 - dIL_pc/100)
     if topo == "Buck":
         L = (Vi - Vo_t)*D*T / dIL_val if dIL_val > 0 else 1e-3
@@ -214,7 +212,7 @@ elif tipus == "Per Resistència (Vi, Vo, R, ΔIL, f, C)":
                     "dIL_val": dIL_val, "IL_med_t": IL_med_t,
                     "IL_min_t": IL_med_t*(dIL_pc/100)}
 
-else:  # Disseny per %ΔIL i %ΔVo
+else:  # design by ripple percentages
     Vi     = st.sidebar.number_input("Tensió entrada Vᵢ (V)", value=24.0, step=1.0, min_value=0.1)
     Vo_t   = st.sidebar.number_input("Tensió sortida Vo (V)", value=12.0, step=1.0, min_value=0.1)
     P      = st.sidebar.number_input("Potència sortida P (W)", value=60.0, step=5.0, min_value=0.1)
@@ -245,7 +243,7 @@ else:  # Disseny per %ΔIL i %ΔVo
     L_uH, C_uF = L*1e6, C*1e6
     deduced_info = {"D": D, "R": R, "L_uH": L_uH, "C_uF": C_uF, "dIL_val": dIL_val}
 
-# ── Funció de càlcul central ──────────────────────────────────────────────────
+# main calculation function
 def calcular(topo, mode, Vi, D, L, C, R, f):
     T = 1/f
     if topo == "Buck":
@@ -259,7 +257,7 @@ def calcular(topo, mode, Vi, D, L, C, R, f):
             Vo = Vi * (2 / (1 + np.sqrt(1 + 4*D**2/K)))
             Io = Vo / R
             dIL    = (Vi - Vo) * D * T / L
-            IL_med = dIL * D / 2  # valor mig en MCD
+            IL_med = dIL * D / 2  # average current in DCM
         Lcrit  = (1-D)*R / (2*f)
         Io_crit = Vo*(1-D) / (2*L*f)
         dVo    = dIL / (8*f*C) if C > 0 else 0
@@ -315,7 +313,7 @@ V = calcular(topo, mode, Vi, D, L, C, R, f)
 real_mode  = "MCC" if L_uH > V['Lcrit'] else "MCD"
 color_mode = "🟢" if real_mode == "MCC" else "🟡"
 
-# ── Títol ─────────────────────────────────────────────────────────────────────
+# page title and mode indicator
 st.title(f"⚡ Convertidor {topo}  —  {mode}")
 st.caption(f"{color_mode} Mode real: **{real_mode}**  |  L_crit = {V['Lcrit']:.1f} µH  |  "
            f"f = {f_kHz:.0f} kHz  |  D = {D:.3f}  |  Vo = {V['Vo']:.3f} V")
@@ -328,9 +326,7 @@ if deduced_info:
     if "C_uF" in deduced_info: parts.append(f"C = **{deduced_info['C_uF']:.2f} µF**")
     st.info("ℹ️ **Valors deduïts de l'enunciat:** " + "  |  ".join(parts))
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ESQUEMES SVG — CORREGITS
-# ══════════════════════════════════════════════════════════════════════════════
+# SVG circuit diagrams
 def esquema_buck():
     return """
 <svg viewBox="0 0 560 210" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:560px;display:block;margin:auto">
@@ -444,8 +440,7 @@ def esquema_boost():
 </svg>"""
 
 def esquema_buckboost():
-    # CORRECCIÓ: L en sèrie a l'entrada (entre Vi i el switch), D cap a la sortida
-    # Topologia correcta: Vi — L — node(S↓, D→) — Vo (invertit)
+    # correct topology: Vi — S — L — node(D→) — Vo (inverted polarity)
     return """
 <svg viewBox="0 0 580 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:580px;display:block;margin:auto">
   <style>
@@ -508,18 +503,14 @@ def esquema_buckboost():
 
 esquemes = {"Buck": esquema_buck, "Boost": esquema_boost, "Buck-Boost": esquema_buckboost}
 
-# ══════════════════════════════════════════════════════════════════════════════
-# TABS
-# ══════════════════════════════════════════════════════════════════════════════
+# tabs
 tab_vals, tab_proc, tab_vars = st.tabs([
     "🔢 Resultats Numèrics",
     "📋 Procediment Pas a Pas",
     "📐 Fórmules & Cronogrames"
 ])
 
-# ════════════════════════════════════════════════════════════════════════════
-# TAB 1: VALORS NUMÈRICS + GRÀFIQUES
-# ════════════════════════════════════════════════════════════════════════════
+# tab 1: numerical results and waveforms
 with tab_vals:
     col_s, col_r = st.columns([1, 1.2])
 
@@ -646,9 +637,7 @@ with tab_vals:
     plt.close()
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# TAB 2: PROCEDIMENT PAS A PAS
-# ════════════════════════════════════════════════════════════════════════════
+# tab 2: step-by-step resolution
 with tab_proc:
     st.subheader(f"📋 Resolució pas a pas — {topo} en {mode}")
     st.markdown("Cada pas mostra la fórmula aplicada i el resultat numèric amb els valors actuals.")
@@ -665,7 +654,7 @@ with tab_proc:
         html += "</div>"
         st.markdown(html, unsafe_allow_html=True)
 
-    # ── Pas 1: Cicle de treball ───────────────────────────────────────────
+    # step 1: duty cycle and output voltage
     if topo == "Buck":
         step(1, "Cicle de treball i tensió de sortida",
              ["Origen: igualtat volt·segon a la bobina en règim permanent",
@@ -692,7 +681,7 @@ with tab_proc:
              f"D = {D:.3f}   →   |Vo| = {V['Vo']:.3f} V  (polaritat invertida)",
              "En Buck-Boost: si D < 0.5 → |Vo| < Vi; si D > 0.5 → |Vo| > Vi")
 
-    # ── Pas 2: Corrent de sortida i resistència ───────────────────────────
+    # step 2: output current and power
     step(2, "Corrent de sortida i potència",
          ["Llei d'Ohm a la resistència de càrrega:",
           "Io = Vo / R",
@@ -701,7 +690,7 @@ with tab_proc:
          f"Io = {V['Io']:.4f} A   |   P = {V['Vo']**2/R:.2f} W",
          "La potència de sortida s'obté com P = Vo·Io = Vo²/R = Io²·R")
 
-    # ── Pas 3: Corrent mig de la bobina ──────────────────────────────────
+    # step 3: average inductor current
     if topo == "Buck":
         step(3, "Corrent mig de la bobina",
              ["En Buck: el condensador no porta corrent DC en règim permanent",
@@ -720,7 +709,7 @@ with tab_proc:
              f"IL_med = {V['IL_med']:.4f} A",
              f"El corrent mig de la bobina és {1/(1-D):.2f}× el corrent de sortida")
 
-    # ── Pas 4: Rizat de corrent ──────────────────────────────────────────
+    # step 4: current ripple
     if topo == "Buck":
         step(4, "Rizat de corrent de la bobina ΔIL",
              ["Origen: equació de la bobina v_L = L·(diL/dt)  →  ΔiL = v_L·Δt/L",
@@ -741,7 +730,7 @@ with tab_proc:
              f"ΔIL = {V['dIL']:.4f} A  ({V['dIL']/V['IL_med']*100:.1f}% de IL_med)" if V['IL_med']>0 else f"ΔIL = {V['dIL']:.4f} A",
              "Com més gran és L o f, menor és el rizat → disseny MCC més fàcil")
 
-    # ── Pas 5: Valors màxim i mínim de IL ────────────────────────────────
+    # step 5: IL max and min
     step(5, "Corrents màxim i mínim de la bobina",
          ["La forma d'ona de IL és triangular (MCC) centrada en IL_med:",
           "IL_max = IL_med + ΔIL/2   (pic quan S es tanca o obre)",
@@ -752,7 +741,7 @@ with tab_proc:
          "⚠️ IL_min ≈ 0 → al límit MCC/MCD. Augmenta L per assegurar MCC" if V['IL_min'] < 0.001 else
          f"IL_min = {V['IL_min']:.4f} A > 0  ✅ confirma MCC")
 
-    # ── Pas 6: Inductància crítica ────────────────────────────────────────
+    # step 6: critical inductance
     if topo == "Buck":
         step(6, "Inductància crítica — frontera MCC/MCD",
              ["Condició MCC: IL_min ≥ 0  →  IL_med ≥ ΔIL/2",
@@ -777,7 +766,7 @@ with tab_proc:
              f"L = {L_uH:.2f} µH {'>' if L_uH >= V['Lcrit'] else '<'} L_crit = {V['Lcrit']:.2f} µH → {'MCC ✅' if real_mode=='MCC' else 'MCD ⚠️'}",
              "En Buck-Boost, L_crit = (1−D)²·R/(2f): cau molt ràpid amb D alt")
 
-    # ── Pas 7: Rizat de tensió de sortida ────────────────────────────────
+    # step 7: output voltage ripple
     if topo == "Buck":
         step(7, "Rizat de la tensió de sortida ΔVo",
              ["Origen: el condensador integra la part AC del corrent de la bobina",
@@ -798,7 +787,7 @@ with tab_proc:
              f"ΔVo = {V['dVo']*1000:.4f} mV  =  {V['dVo']/V['Vo']*100:.3f}% de Vo" if V['Vo']>0 else f"ΔVo = {V['dVo']:.5f} V",
              "En Boost/Buck-Boost: ΔVo ∝ D, per tant empitjora amb D alt")
 
-    # ── Pas 8: Tensions màximes sobre components ──────────────────────────
+    # step 8: max voltages on switch and diode
     if topo == "Buck":
         step(8, "Tensions màximes sobre switch i díode",
              ["Quan S és OBERT: tot Vi cau al switch (díode condueix, Vo≈0 al switch)",
@@ -830,7 +819,7 @@ with tab_proc:
              f"V_sw,max = {V['Vsw_max']:.2f} V  |  V_D,max = {V['VD_max']:.2f} V",
              f"Buck-Boost té els requeriments de tensió MÉS ALTS. Marge ×1.5 → {V['Vsw_max']*1.5:.0f} V")
 
-    # ── Pas 9 (opcional MCD) ─────────────────────────────────────────────
+    # step 9: DCM output voltage (optional)
     if "MCD" in mode:
         if topo == "Buck":
             mcd_f = ["K = 2·L·f/R", "Vo_mcd = Vi · 2 / (1 + √(1 + 4·D²/K))"]
@@ -850,7 +839,7 @@ with tab_proc:
              "En MCD la tensió de sortida depèn de la càrrega (R), no és constant per a D fix")
 
     st.divider()
-    # ── Resum final ───────────────────────────────────────────────────────
+    # summary table
     st.subheader("📊 Taula resum")
     col_a, col_b, col_c = st.columns(3)
     with col_a:
@@ -875,9 +864,7 @@ with tab_proc:
         st.write(f"C_mín = {V['Ccrit']:.2f} µF")
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# TAB 3: FÓRMULES + CRONOGRAMA SIMBÒLIC
-# ════════════════════════════════════════════════════════════════════════════
+# tab 3: formulas and symbolic waveforms
 with tab_vars:
     col_sv, col_fv = st.columns([1, 1.5])
 
@@ -896,7 +883,7 @@ with tab_vars:
                 st.latex(latex_str)
 
         def deriv_block(title, items, color="#4c9be8"):
-            """items = list of (nom, latex_formula, derivació_html)"""
+            """items: list of (name, latex_formula, derivation_html)"""
             st.markdown(f"<div style='color:{color};font-weight:700;margin-top:14px;font-size:1rem'>{title}</div>",
                         unsafe_allow_html=True)
             for nom, latex_str, deriv in items:
@@ -1095,7 +1082,7 @@ with tab_vars:
 
     t_sym = np.array([0, D, D, 1, 1, 1+D, 1+D, 2])
     iL_mcc = np.array([0.55, 1.0, 1.0, 0.55, 0.55, 1.0, 1.0, 0.55])
-    # MCD: puja, baixa fins 0, es queda 0
+    # DCM: rises, falls to 0, stays at 0
     D2_sym = 0.3
     t_mcd = np.array([0, D, D, D+D2_sym, D+D2_sym, 1, 1, 1+D, 1+D, 1+D+D2_sym, 1+D+D2_sym, 2])
     iL_mcd = np.array([0, 1.0, 1.0, 0, 0, 0, 0, 1.0, 1.0, 0, 0, 0])
@@ -1114,7 +1101,7 @@ with tab_vars:
         ax2.axvline(xv, color='#444', lw=0.8, ls=':')
         ax2.text(xv, -0.12, lbl, color='#999', fontsize=7.5, ha='center')
 
-    # Fletxes intervals
+    # interval arrows
     ax2.annotate('', xy=(D,-0.22), xytext=(0,-0.22),
                  arrowprops=dict(arrowstyle='<->', color='#f0a020', lw=1.2))
     ax2.text(D/2, -0.30, 'D·T', color='#f0a020', fontsize=8.5, ha='center')
@@ -1133,7 +1120,6 @@ with tab_vars:
     st.pyplot(fig2)
     plt.close()
 
-# ── Footer ────────────────────────────────────────────────────────────────────
+# footer
 st.divider()
-st.caption("⚡ Eina d'estudi completa per a convertidors DC/DC — Buck · Boost · Buck-Boost  "
-           "| Procediment pas a pas + Disseny flexible des de qualsevol enunciat d'examen")
+st.caption("⚡ DC/DC Converter Study Tool — Buck · Boost · Buck-Boost  |  Developed by Vlarac")
