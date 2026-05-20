@@ -117,10 +117,14 @@ mode = st.sidebar.selectbox("Mode de conducció", ["MCC (Continu)", "MCD (Discon
 tipus = st.sidebar.selectbox(
     "Tipus d'enunciat",
     [
-        "Clàssic (Vi, D, L, C, R, f)",
-        "Per Potència (Vi, Vo, P, ΔIL, f, C)",
-        "Per Resistència (Vi, Vo, R, ΔIL, f, C)",
-        "Disseny per ΔIL% i ΔVo% (Vi, Vo, P, f, %ΔIL, %ΔVo)",
+        "[1] Clàssic — Vi, D, L, C, R, f",
+        "[2] Per Potència — Vi, Vo, P, ΔIL, f, C",
+        "[3] Per Resistència — Vi, Vo, R, ΔIL, f, C",
+        "[4] Disseny per % — Vi, Vo, P, f, %ΔIL, %ΔVo",
+        "[5] Ton/Toff → D — Vi, Ton, Toff, L, C, R",
+        "[6] f mínima per ΔIL — Vi_min, Vi_max, Vo, ΔIL_max, L",
+        "[7] L mínima MCC — Vi_min/max, Vo, Io_min/max, f",
+        "[8] Disseny rang complet — Vi_min/max, Vo, P_min/max, f, ΔVo%",
     ]
 )
 
@@ -129,7 +133,7 @@ st.sidebar.divider()
 # dynamic inputs depending on problem type
 deduced_info = {}  # stores derived values to display as info banner
 
-if tipus == "Clàssic (Vi, D, L, C, R, f)":
+if tipus == "[1] Clàssic — Vi, D, L, C, R, f":
     Vi     = st.sidebar.number_input("Tensió entrada Vᵢ (V)", value=24.0, step=1.0, min_value=0.1)
     D      = st.sidebar.slider("Cicle de treball D", 0.05, 0.95, 0.55, 0.01)
     L_uH   = st.sidebar.number_input("Inductància L (µH)", value=250.0, step=10.0, min_value=0.1)
@@ -138,7 +142,7 @@ if tipus == "Clàssic (Vi, D, L, C, R, f)":
     f_kHz  = st.sidebar.number_input("Freqüència f (kHz)", value=40.0, step=1.0, min_value=0.1)
     L, C, f, T = L_uH*1e-6, C_uF*1e-6, f_kHz*1e3, 1/(f_kHz*1e3)
 
-elif tipus == "Per Potència (Vi, Vo, P, ΔIL, f, C)":
+elif tipus == "[2] Per Potència — Vi, Vo, P, ΔIL, f, C":
     Vi     = st.sidebar.number_input("Tensió entrada Vᵢ (V)", value=10.0, step=1.0, min_value=0.1)
     Vo_t   = st.sidebar.number_input("Tensió sortida Vo (V)", value=50.0, step=1.0, min_value=0.1)
     P      = st.sidebar.number_input("Potència sortida P (W)", value=50.0, step=5.0, min_value=0.1)
@@ -174,7 +178,7 @@ elif tipus == "Per Potència (Vi, Vo, P, ΔIL, f, C)":
     deduced_info = {"D": D, "R": R, "L_uH": L_uH, "C_uF": C_uF,
                     "dIL_val": dIL_val, "dVo_val": dVo_pc/100*Vo_t}
 
-elif tipus == "Per Resistència (Vi, Vo, R, ΔIL, f, C)":
+elif tipus == "[3] Per Resistència — Vi, Vo, R, ΔIL, f, C":
     Vi     = st.sidebar.number_input("Tensió entrada Vᵢ (V)", value=24.0, step=1.0, min_value=0.1)
     Vo_t   = st.sidebar.number_input("Tensió sortida Vo (V)", value=36.0, step=1.0, min_value=0.1)
     R      = st.sidebar.number_input("Resistència R (Ω)", value=10.0, step=1.0, min_value=0.01)
@@ -212,7 +216,7 @@ elif tipus == "Per Resistència (Vi, Vo, R, ΔIL, f, C)":
                     "dIL_val": dIL_val, "IL_med_t": IL_med_t,
                     "IL_min_t": IL_med_t*(dIL_pc/100)}
 
-else:  # design by ripple percentages
+elif tipus == "[4] Disseny per % — Vi, Vo, P, f, %ΔIL, %ΔVo":  # design by ripple percentages
     Vi     = st.sidebar.number_input("Tensió entrada Vᵢ (V)", value=24.0, step=1.0, min_value=0.1)
     Vo_t   = st.sidebar.number_input("Tensió sortida Vo (V)", value=12.0, step=1.0, min_value=0.1)
     P      = st.sidebar.number_input("Potència sortida P (W)", value=60.0, step=5.0, min_value=0.1)
@@ -242,6 +246,158 @@ else:  # design by ripple percentages
         C = Io_t*D / (f*(dVo_pc/100*Vo_t))
     L_uH, C_uF = L*1e6, C*1e6
     deduced_info = {"D": D, "R": R, "L_uH": L_uH, "C_uF": C_uF, "dIL_val": dIL_val}
+
+elif tipus == "[5] Ton/Toff → D — Vi, Ton, Toff, L, C, R":
+    Vi    = st.sidebar.number_input("Tensió entrada Vᵢ (V)", value=100.0, step=1.0, min_value=0.1)
+    Ton_ms = st.sidebar.number_input("Temps ON — Ton (ms)", value=0.6, step=0.1, min_value=0.01)
+    Toff_ms= st.sidebar.number_input("Temps OFF — Toff (ms)", value=0.4, step=0.1, min_value=0.01)
+    L_uH  = st.sidebar.number_input("Inductància L (µH)", value=120000.0, step=1000.0, min_value=0.1)
+    C_uF  = st.sidebar.number_input("Capacitat C (µF)", value=300.0, step=10.0, min_value=0.1)
+    R     = st.sidebar.number_input("Resistència R (Ω)", value=500.0, step=10.0, min_value=0.01)
+    Ton   = Ton_ms * 1e-3
+    Toff  = Toff_ms * 1e-3
+    T_tot = Ton + Toff
+    f     = 1 / T_tot
+    f_kHz = f / 1e3
+    D     = np.clip(Ton / T_tot, 0.05, 0.95)
+    L, C  = L_uH*1e-6, C_uF*1e-6
+    deduced_info = {"D": D, "f_kHz": f_kHz}
+
+elif tipus == "[6] f mínima per ΔIL — Vi_min, Vi_max, Vo, ΔIL_max, L":
+    st.sidebar.markdown("**Calcula la freqüència mínima** per no superar ΔIL_max en tot el rang de Vi")
+    Vi_min_v = st.sidebar.number_input("Vi mínima (V)", value=48.0, step=1.0, min_value=0.1)
+    Vi_max_v = st.sidebar.number_input("Vi màxima (V)", value=60.0, step=1.0, min_value=0.1)
+    Vo_t     = st.sidebar.number_input("Tensió sortida Vo (V)", value=15.0, step=1.0, min_value=0.1)
+    dIL_max  = st.sidebar.number_input("ΔIL màxim permès (A)", value=2.4, step=0.1, min_value=0.01)
+    L_uH     = st.sidebar.number_input("Inductància L (µH)", value=100.0, step=10.0, min_value=0.1)
+    C_uF     = st.sidebar.number_input("Capacitat C (µF)", value=75.0, step=5.0, min_value=0.1)
+    R        = st.sidebar.number_input("Resistència R (Ω)", value=20.0, step=1.0, min_value=0.01)
+    L, C     = L_uH*1e-6, C_uF*1e-6
+    # Worst case depends on topology:
+    # Buck: ΔIL = Vo*(1-D)/Lf → max when D_min (Vi_max) → f ≥ Vo*(1-D_min)/(L*ΔIL_max)
+    # Boost/BB: ΔIL = Vo*(1-D)/Lf → max when (1-D_min) max → Vi_min gives D_min
+    if topo == "Buck":
+        D_worst = np.clip(Vo_t / Vi_max_v, 0.05, 0.95)  # D_min → worst ΔIL
+        f_min   = Vo_t * (1 - D_worst) / (L * dIL_max)
+        Vi      = Vi_min_v  # use Vi_min for display (worst current stress)
+        D       = np.clip(Vo_t / Vi, 0.05, 0.95)
+    elif topo == "Boost":
+        D_worst = np.clip(1 - Vi_min_v/Vo_t, 0.05, 0.95)  # D_max → worst ΔIL
+        f_min   = Vi_min_v * D_worst / (L * dIL_max)
+        Vi      = Vi_min_v
+        D       = D_worst
+    else:  # Buck-Boost: ΔIL = Vi*D/Lf, worst = D_min*(1-D_min) at Vi_min
+        D_worst = np.clip(Vo_t / (Vi_min_v + Vo_t), 0.05, 0.95)
+        f_min   = Vo_t * (1 - D_worst) / (L * dIL_max)
+        Vi      = Vi_min_v
+        D       = D_worst
+    f_kHz   = f_min / 1e3
+    f       = f_min
+    deduced_info = {"D": D, "f_kHz": f_kHz, "f_min_kHz": f_min/1e3}
+
+elif tipus == "[7] L mínima MCC — Vi_min/max, Vo, Io_min/max, f":
+    st.sidebar.markdown("**Calcula L mínima** per MCC en tot el rang de Vi i Io")
+    Vi_min_v = st.sidebar.number_input("Vi mínima (V)", value=12.0, step=1.0, min_value=0.1)
+    Vi_max_v = st.sidebar.number_input("Vi màxima (V)", value=20.0, step=1.0, min_value=0.1)
+    Vo_t     = st.sidebar.number_input("Tensió sortida Vo (V)", value=24.0, step=1.0, min_value=0.1)
+    Io_min_v = st.sidebar.number_input("Io mínima (A)", value=2.0, step=0.5, min_value=0.01)
+    Io_max_v = st.sidebar.number_input("Io màxima (A)", value=5.0, step=0.5, min_value=0.01)
+    f_kHz    = st.sidebar.number_input("Freqüència f (kHz)", value=100.0, step=1.0, min_value=0.1)
+    C_uF     = st.sidebar.number_input("Capacitat C (µF)", value=100.0, step=5.0, min_value=0.1)
+    f        = f_kHz * 1e3
+    T_per    = 1 / f
+    C        = C_uF * 1e-6
+    # L_min formula: L ≥ R_max*T*(1-D) / 2 for Buck, evaluated at worst case
+    # Worst case: min Io (max R) and max Vi (min D for Buck)
+    R_max    = Vo_t / Io_min_v  # minimum load current = max resistance
+    if topo == "Buck":
+        # L_min = Vo*T*(1-Vo/Vi_max) / (2*Io_min) = Vi_G/8*fs*Io_min (max at Vo=Vi/2)
+        # General: L(Vo,Io) = T/(2*Io) * Vo*(1 - Vo/Vi)
+        # Max over Vi: dL/dVi=0 not needed since L is decreasing in Vi → worst at Vi_max
+        # Max over Io: decreasing → worst at Io_min
+        D_worst  = np.clip(Vo_t / Vi_max_v, 0.05, 0.95)
+        L_min    = T_per * Vo_t * (1 - D_worst) / (2 * Io_min_v)
+        # Actually for variable Vo (here Vo fixed): worst D when Vo→Vi/2
+        # but Vo is fixed here; worst Vi = Vi_max (smallest D, largest ripple)
+        Vi       = Vi_max_v
+        D        = D_worst
+    elif topo == "Boost":
+        # L_min = D*(1-D)^2 * R / (2*f) → worst case: maximize over D
+        # With variable Vi: D = 1 - Vi/Vo → worst Vi_min (largest D)
+        D_worst  = np.clip(1 - Vi_min_v/Vo_t, 0.05, 0.95)
+        L_min    = D_worst * (1-D_worst)**2 * R_max / (2*f)
+        Vi       = Vi_min_v
+        D        = D_worst
+    else:  # Buck-Boost
+        D_worst  = np.clip(Vo_t / (Vi_min_v + Vo_t), 0.05, 0.95)
+        L_min    = (1-D_worst)**2 * R_max / (2*f)
+        Vi       = Vi_min_v
+        D        = D_worst
+    L_uH     = L_min * 1e6
+    L        = L_min
+    R        = R_max
+    deduced_info = {"D": D, "L_uH": L_uH, "R": R_max,
+                    "Vi_min": Vi_min_v, "Vi_max": Vi_max_v,
+                    "Io_min": Io_min_v, "Io_max": Io_max_v}
+
+elif tipus == "[8] Disseny rang complet — Vi_min/max, Vo, P_min/max, f, ΔVo%":
+    st.sidebar.markdown("**Disseny per rang complet** de Vi i potència")
+    Vi_min_v = st.sidebar.number_input("Vi mínima (V)", value=48.0, step=1.0, min_value=0.1)
+    Vi_max_v = st.sidebar.number_input("Vi màxima (V)", value=60.0, step=1.0, min_value=0.1)
+    Vo_t     = st.sidebar.number_input("Tensió sortida Vo (V)", value=15.0, step=1.0, min_value=0.1)
+    P_min_v  = st.sidebar.number_input("Potència mínima P_min (W)", value=5.0, step=1.0, min_value=0.1)
+    P_max_v  = st.sidebar.number_input("Potència màxima P_max (W)", value=30.0, step=1.0, min_value=0.1)
+    f_kHz    = st.sidebar.number_input("Freqüència f (kHz)", value=100.0, step=1.0, min_value=0.1)
+    dVo_pc   = st.sidebar.number_input("Rizat ΔVo màx (% de Vo)", value=2.0, step=0.5, min_value=0.01)
+    f        = f_kHz * 1e3
+    T_per    = 1 / f
+    # L_min for MCC in all cases: L ≥ Vo²*T/(2*P_min)*(1 - Vo/Vi_max) for Buck
+    # worst: P_min (max R) + Vi_max (min D)
+    if topo == "Buck":
+        D_min    = np.clip(Vo_t / Vi_max_v, 0.05, 0.95)
+        D_max    = np.clip(Vo_t / Vi_min_v, 0.05, 0.95)
+        L_min    = Vo_t**2 * T_per / (2 * P_min_v) * (1 - Vo_t/Vi_max_v)
+    elif topo == "Boost":
+        D_min    = np.clip(1 - Vi_max_v/Vo_t, 0.05, 0.95)
+        D_max    = np.clip(1 - Vi_min_v/Vo_t, 0.05, 0.95)
+        # worst: P_min, Vi_min (largest D)
+        Io_min_v = P_min_v / Vo_t
+        R_max    = Vo_t / Io_min_v
+        L_min    = D_max * (1-D_max)**2 * R_max / (2*f)
+    else:  # Buck-Boost
+        D_min    = np.clip(Vo_t / (Vi_max_v + Vo_t), 0.05, 0.95)
+        D_max    = np.clip(Vo_t / (Vi_min_v + Vo_t), 0.05, 0.95)
+        Io_min_v = P_min_v / Vo_t
+        R_max    = Vo_t / Io_min_v
+        L_min    = (1-D_max)**2 * R_max / (2*f)
+    L_uH     = L_min * 1e6
+    L        = L_min
+    # C_min for ΔVo at worst case (largest D = Vi_min for Buck)
+    Io_max_v = P_max_v / Vo_t
+    R_min    = Vo_t / Io_max_v  # min R = max power
+    R        = Vo_t**2 / P_max_v  # use max power for nominal display
+    if topo == "Buck":
+        D        = D_max  # worst ripple at max D (Vi_min)
+        Vi       = Vi_min_v
+        dIL_val  = Vo_t * (1-D) / (L*f)
+        C_min    = dIL_val / (8*f*(dVo_pc/100*Vo_t))
+    elif topo == "Boost":
+        D        = D_max
+        Vi       = Vi_min_v
+        C_min    = Io_max_v * D / (f * (dVo_pc/100*Vo_t))
+    else:
+        D        = D_max
+        Vi       = Vi_min_v
+        C_min    = Io_max_v * D / (f * (dVo_pc/100*Vo_t))
+    C_uF     = C_min * 1e6
+    C        = C_min
+    deduced_info = {"D": D, "L_uH": L_uH, "C_uF": C_uF, "R": R,
+                    "D_min": D_min, "D_max": D_max}
+
+else:
+    # fallback: should not happen
+    Vi, D, L_uH, C_uF, R, f_kHz = 24.0, 0.5, 100.0, 100.0, 10.0, 50.0
+    L, C, f = L_uH*1e-6, C_uF*1e-6, f_kHz*1e3
 
 # main calculation function
 def calcular(topo, mode, Vi, D, L, C, R, f):
@@ -313,6 +469,40 @@ V = calcular(topo, mode, Vi, D, L, C, R, f)
 real_mode  = "MCC" if L_uH > V['Lcrit'] else "MCD"
 color_mode = "🟢" if real_mode == "MCC" else "🟡"
 
+# input validation warnings
+warnings = []
+if tipus != "[1] Clàssic — Vi, D, L, C, R, f":
+    if topo == "Buck" and 'Vo_t' in dir():
+        pass  # Vo_t defined below via locals; check via D proxy
+    # Check via deduced D for non-classic modes
+    Vo_calc = V['Vo']
+    if topo == "Buck" and Vo_calc >= Vi:
+        warnings.append(f"⚠️ **Buck impossible:** Vo ({Vo_calc:.2f} V) ≥ Vi ({Vi:.2f} V). Un Buck sempre redueix tensió (Vo = D·Vi < Vi).")
+    if topo == "Boost" and Vo_calc <= Vi:
+        warnings.append(f"⚠️ **Boost impossible:** Vo ({Vo_calc:.2f} V) ≤ Vi ({Vi:.2f} V). Un Boost sempre eleva tensió (Vo = Vi/(1−D) > Vi).")
+    if topo == "Buck" and D >= 0.95:
+        warnings.append(f"⚠️ **D = {D:.3f} molt alt per a Buck:** a la pràctica D > 0.9 és difícil de controlar. Revisa els paràmetres.")
+    if topo == "Boost" and D >= 0.9:
+        warnings.append(f"⚠️ **D = {D:.3f} molt alt per a Boost:** Vo → ∞ quan D → 1. Alt risc de inestabilitat i pèrdues reals.")
+else:
+    # Classic mode: Vo is derived from D, check consistency
+    if topo == "Buck" and D * Vi >= Vi:
+        warnings.append(f"⚠️ **Buck:** D = {D:.3f} → Vo = {V['Vo']:.2f} V. Comprova que Vo < Vi.")
+    if topo == "Boost" and D >= 0.9:
+        warnings.append(f"⚠️ **D = {D:.3f} molt alt:** Vo → ∞ quan D → 1. Inestabilitat probable.")
+
+if L_uH <= 0.5:
+    warnings.append(f"⚠️ **L = {L_uH:.2f} µH molt petita:** possible MCD extrem o valors irreals.")
+if C_uF <= 0.1:
+    warnings.append(f"⚠️ **C = {C_uF:.2f} µF molt petita:** el rizat de tensió pot ser excessiu.")
+if f_kHz > 5000:
+    warnings.append(f"⚠️ **f = {f_kHz:.0f} kHz molt alta:** a la pràctica els convertidors rarament superen 1–2 MHz.")
+if V['dVo'] > 0 and V['Vo'] > 0 and (V['dVo'] / V['Vo']) > 0.2:
+    warnings.append(f"⚠️ **Rizat ΔVo = {V['dVo']*1000:.1f} mV ({V['dVo']/V['Vo']*100:.1f}% de Vo):** molt alt, el disseny pot no ser pràctic.")
+
+for w in warnings:
+    st.warning(w)
+
 # page title and mode indicator
 st.title(f"⚡ Convertidor {topo}  —  {mode}")
 st.caption(f"{color_mode} Mode real: **{real_mode}**  |  L_crit = {V['Lcrit']:.1f} µH  |  "
@@ -320,10 +510,18 @@ st.caption(f"{color_mode} Mode real: **{real_mode}**  |  L_crit = {V['Lcrit']:.1
 
 if deduced_info:
     parts = []
-    if "D"    in deduced_info: parts.append(f"D = **{deduced_info['D']:.3f}**")
-    if "R"    in deduced_info: parts.append(f"R = **{deduced_info['R']:.2f} Ω**")
-    if "L_uH" in deduced_info: parts.append(f"L = **{deduced_info['L_uH']:.2f} µH**")
-    if "C_uF" in deduced_info: parts.append(f"C = **{deduced_info['C_uF']:.2f} µF**")
+    if "D"       in deduced_info: parts.append(f"D = **{deduced_info['D']:.3f}**")
+    if "R"       in deduced_info: parts.append(f"R = **{deduced_info['R']:.2f} Ω**")
+    if "L_uH"    in deduced_info: parts.append(f"L = **{deduced_info['L_uH']:.2f} µH**")
+    if "C_uF"    in deduced_info: parts.append(f"C = **{deduced_info['C_uF']:.2f} µF**")
+    if "f_kHz"   in deduced_info: parts.append(f"f = **{deduced_info['f_kHz']:.2f} kHz**")
+    if "f_min_kHz" in deduced_info: parts.append(f"f_min = **{deduced_info['f_min_kHz']:.2f} kHz**")
+    if "D_min"   in deduced_info: parts.append(f"D_min = **{deduced_info['D_min']:.3f}**")
+    if "D_max"   in deduced_info: parts.append(f"D_max = **{deduced_info['D_max']:.3f}**")
+    if "Vi_min"  in deduced_info: parts.append(f"Vi_min = **{deduced_info['Vi_min']:.1f} V**")
+    if "Vi_max"  in deduced_info: parts.append(f"Vi_max = **{deduced_info['Vi_max']:.1f} V**")
+    if "Io_min"  in deduced_info: parts.append(f"Io_min = **{deduced_info['Io_min']:.2f} A**")
+    if "Io_max"  in deduced_info: parts.append(f"Io_max = **{deduced_info['Io_max']:.2f} A**")
     st.info("ℹ️ **Valors deduïts de l'enunciat:** " + "  |  ".join(parts))
 
 # SVG circuit diagrams
@@ -838,6 +1036,131 @@ with tab_proc:
              mcd_f, mcd_r,
              "En MCD la tensió de sortida depèn de la càrrega (R), no és constant per a D fix")
 
+    # specific resolution for new tipus
+    if tipus == "[5] Ton/Toff → D — Vi, Ton, Toff, L, C, R":
+        st.divider()
+        st.subheader("📋 Resolució específica — Tipus [5]: Ton/Toff → D")
+        step("A", "Deducció del cicle de treball des de Ton i Toff",
+             ["El cicle de treball D es defineix com la fracció del període en que S és tancat:",
+              "T = Ton + Toff",
+              "D = Ton / T = Ton / (Ton + Toff)",
+              f"T = {Ton_ms:.3f} ms + {Toff_ms:.3f} ms = {Ton_ms+Toff_ms:.3f} ms  →  f = {f_kHz:.3f} kHz",
+              f"D = {Ton_ms:.3f} / {Ton_ms+Toff_ms:.3f} = {D:.4f}"],
+             f"D = {D:.4f}   |   f = {f_kHz:.3f} kHz",
+             "A partir d'aquí el problema es redueix al cas clàssic (Vi, D, L, C, R, f)")
+        step("B", "Verificació de MCC: comprovació que IL_min > 0",
+             ["Condició MCC: IL_min = IL_med − ΔIL/2 > 0",
+              f"IL_min = {V['IL_med']:.4f} − {V['dIL']/2:.4f} = {V['IL_min']:.4f} A",
+              f"L = {L_uH:.0f} µH  {'>' if L_uH >= V['Lcrit'] else '<'}  L_crit = {V['Lcrit']:.1f} µH"],
+             f"{'✅ MCC confirmat: IL_min = ' + f"{V['IL_min']:.4f} A > 0" if V['IL_min'] > 0 else '⚠️ MCD: IL_min ≤ 0, la hipòtesi de conducció contínua NO és vàlida'}",
+             "Si IL_min > 0, la hipòtesi de conducció contínua és correcta")
+        step("C", "Rizat de tensió al condensador ΔVc",
+             ["La corrent per el condensador és ic = ID (durant OFF) − Io",
+              "ΔVc = (1/C)·∫ic dt  →  ΔVc = Io·D·T / C  (per al Boost/BB)",
+              "Per al Buck: ΔVc = ΔIL / (8·f·C)",
+              f"ΔVo = {V['dVo']*1000:.4f} mV = {V['dVo']/V['Vo']*100:.4f}% de Vo" if V['Vo']>0 else ""],
+             f"ΔVo = {V['dVo']*1000:.3f} mV",
+             "Nota: el rizat ha de ser ≪ Vo per validar l'aproximació de Vo constant")
+
+    elif tipus == "[6] f mínima per ΔIL — Vi_min, Vi_max, Vo, ΔIL_max, L":
+        st.divider()
+        st.subheader("📋 Resolució específica — Tipus [6]: f mínima per ΔIL")
+        if topo == "Buck":
+            d_worst_label = "Vi_max"
+            d_worst_val   = np.clip(V['Vo']/Vi_max_v, 0.05, 0.95)
+            expr_worst    = f"D_min = Vo/Vi_max = {V['Vo']:.2f}/{Vi_max_v:.1f} = {d_worst_val:.4f}"
+            expr_f        = f"f_min = Vo·(1−D_min) / (L·ΔIL_max)"
+        elif topo == "Boost":
+            d_worst_label = "Vi_min"
+            d_worst_val   = np.clip(1 - Vi_min_v/V['Vo'], 0.05, 0.95)
+            expr_worst    = f"D_max = 1 − Vi_min/Vo = 1 − {Vi_min_v:.1f}/{V['Vo']:.2f} = {d_worst_val:.4f}"
+            expr_f        = f"f_min = Vi_min·D_max / (L·ΔIL_max)"
+        else:
+            d_worst_label = "Vi_min"
+            d_worst_val   = np.clip(V['Vo']/(Vi_min_v+V['Vo']), 0.05, 0.95)
+            expr_worst    = f"D (Vi_min) = Vo/(Vi_min+Vo) = {V['Vo']:.2f}/({Vi_min_v:.1f}+{V['Vo']:.2f}) = {d_worst_val:.4f}"
+            expr_f        = f"f_min = Vo·(1−D) / (L·ΔIL_max)"
+        step("A", "Identificació del pitjor cas per al rizat ΔIL",
+             [f"ΔIL = Vo·(1−D)/(L·f)  →  màxim quan D és mínim (per al {topo})",
+              f"D és mínim quan Vi és màxim ({d_worst_label})",
+              expr_worst,
+              "→ El pitjor cas per limitar ΔIL és el de tensió d'entrada màxima"],
+             f"Pitjor cas: D = {d_worst_val:.4f}  (Vi = {d_worst_label})")
+        step("B", "Càlcul de la freqüència mínima",
+             [f"ΔIL = Vo·(1−D_min) / (L·f)  ≤  ΔIL_max",
+              "Aïllant f: f_min = Vo·(1−D_min) / (L·ΔIL_max)",
+              f"f_min = {V['Vo']:.3f}·(1−{d_worst_val:.4f}) / ({L_uH:.1f}×10⁻⁶·{dIL_max:.2f})",
+              f"f_min = {V['Vo']:.3f}·{1-d_worst_val:.4f} / {L*dIL_max:.6f} = {f_kHz:.2f} kHz"],
+             f"f_min = {f_kHz:.2f} kHz",
+             "Amb aquesta freqüència es garanteix ΔIL ≤ ΔIL_max en tot el rang de Vi")
+        step("C", "Verificació amb els valors calculats",
+             [f"A f = {f_kHz:.2f} kHz i D = {D:.4f} (Vi = {Vi:.1f} V):",
+              f"ΔIL_real = {V['dIL']:.4f} A  ≤  ΔIL_max = {dIL_max:.2f} A ✅" if V['dIL'] <= dIL_max else
+              f"ΔIL_real = {V['dIL']:.4f} A  >  ΔIL_max = {dIL_max:.2f} A ⚠️"],
+             f"ΔIL = {V['dIL']:.4f} A ({'OK ✅' if V['dIL'] <= dIL_max else 'SUPERAT ⚠️'})")
+
+    elif tipus == "[7] L mínima MCC — Vi_min/max, Vo, Io_min/max, f":
+        st.divider()
+        st.subheader("📋 Resolució específica — Tipus [7]: L mínima per MCC")
+        if topo == "Buck":
+            expr_crit = "L_crit = (1−D)·R_max / (2·f)  →  màxim a Vi_max (D_min) i Io_min (R_max)"
+            expr_val  = f"L_min = (1−{D:.4f})·{R:.2f} / (2·{f_kHz:.0f}×10³) = {L_uH:.2f} µH"
+        elif topo == "Boost":
+            expr_crit = "L_crit = D·(1−D)²·R_max / (2·f)  →  màxim a Vi_min (D_max) i Io_min (R_max)"
+            expr_val  = f"L_min = {D:.4f}·(1−{D:.4f})²·{R:.2f} / (2·{f_kHz:.0f}×10³) = {L_uH:.2f} µH"
+        else:
+            expr_crit = "L_crit = (1−D)²·R_max / (2·f)  →  màxim a Vi_min i Io_min"
+            expr_val  = f"L_min = (1−{D:.4f})²·{R:.2f} / (2·{f_kHz:.0f}×10³) = {L_uH:.2f} µH"
+        step("A", "Condició de MCC en tot el rang",
+             ["MCC ↔ IL_min ≥ 0  →  IL_med ≥ ΔIL/2",
+              "Substituint: Io/(1−D) ≥ Vo·(1−D)/(2·L·f)  [Boost/BB] o Io ≥ Vo·(1−D)/(2·L·f) [Buck]",
+              "Aïllant L: L ≥ L_crit(D, R)",
+              "L_crit depèn de D (que depèn de Vi) i de R (que depèn de Io)"],
+             "Cal trobar L_min = max{L_crit} sobre tot el rang de Vi i Io")
+        step("B", "Identificació del pitjor cas",
+             ["L_crit és màxim quan R és màxim (Io mínim) i D és en el punt crític",
+              f"R_max = Vo/Io_min = {V['Vo']:.2f}/{Io_min_v:.2f} = {R:.2f} Ω  (càrrega mínima)",
+              expr_crit,
+              f"Pitjor D: {D:.4f}  (a Vi = {Vi:.1f} V)"],
+             f"Pitjor cas: Vi = {Vi:.1f} V, Io = {Io_min_v:.2f} A, R = {R:.2f} Ω")
+        step("C", "Càlcul de L_min",
+             [expr_val,
+              f"Per tant, si L ≥ {L_uH:.2f} µH, el convertidor opera en MCC en tot el rang"],
+             f"L_min = {L_uH:.2f} µH",
+             f"Verificació: L_crit actual = {V['Lcrit']:.2f} µH ({'MCC ✅' if L_uH >= V['Lcrit'] else 'MCD ⚠️'})")
+
+    elif tipus == "[8] Disseny rang complet — Vi_min/max, Vo, P_min/max, f, ΔVo%":
+        st.divider()
+        st.subheader("📋 Resolució específica — Tipus [8]: Disseny rang complet")
+        if topo == "Buck":
+            expr_L = f"L_min = Vo²·T/(2·P_min)·(1 − Vo/Vi_max)"
+            expr_Lv = f"L_min = {V['Vo']:.2f}²·{1/f:.2e}/(2·{P_min_v:.1f})·(1−{V['Vo']:.2f}/{Vi_max_v:.1f}) = {L_uH:.2f} µH"
+            worst_L = f"Vi_max={Vi_max_v:.0f}V (D_min={D_min:.3f}) i P_min={P_min_v:.0f}W (R_max)"
+        else:
+            expr_L  = "L_min = D_max·(1−D_max)²·R_max / (2·f)"
+            expr_Lv = f"L_min = {D:.4f}·(1−{D:.4f})²·{R:.2f} / (2·{f_kHz:.0f}×10³) = {L_uH:.2f} µH"
+            worst_L = f"Vi_min={Vi_min_v:.0f}V (D_max={D_max:.3f}) i P_min={P_min_v:.0f}W (R_max)"
+        step("A", "Càlcul de D_min i D_max",
+             ["D varia per mantenir Vo constant amb Vi variable:",
+              f"D_min = Vo/Vi_max = {V['Vo']:.2f}/{Vi_max_v:.1f} = {D_min:.4f}  (a Vi_max)",
+              f"D_max = Vo/Vi_min = {V['Vo']:.2f}/{Vi_min_v:.1f} = {D_max:.4f}  (a Vi_min)",
+              "El circuit de control ajustarà D dins d'aquest rang"],
+             f"D ∈ [{D_min:.4f}, {D_max:.4f}]")
+        step("B", "Càlcul de L_min per garantir MCC en tot el rang",
+             ["L_crit és màxim al pitjor cas: càrrega mínima (P_min) i Vi que dona D crític",
+              f"Pitjor cas: {worst_L}",
+              expr_L,
+              expr_Lv],
+             f"L_min = {L_uH:.2f} µH",
+             "Amb L > L_min, el convertidor opera en MCC per a qualsevol Vi i P dins del rang")
+        step("C", "Càlcul de C_min per limitar ΔVo",
+             ["Pitjor cas per al rizat de tensió: D màxim (Vi_min) i Io màxim (P_max)",
+              f"ΔVo_max = {dVo_pc:.1f}% · Vo = {dVo_pc/100*V['Vo']:.3f} V",
+              f"C_min = ΔIL / (8·f·ΔVo_max)  [Buck]  o  C_min = Io_max·D_max / (f·ΔVo_max)  [Boost/BB]",
+              f"C_min = {C_uF:.2f} µF"],
+             f"C_min = {C_uF:.2f} µF",
+             f"Verificació: ΔVo = {V['dVo']*1000:.3f} mV = {V['dVo']/V['Vo']*100:.4f}% de Vo" if V['Vo']>0 else "")
+
     st.divider()
     # summary table
     st.subheader("📊 Taula resum")
@@ -1119,6 +1442,201 @@ with tab_vars:
     plt.tight_layout()
     st.pyplot(fig2)
     plt.close()
+
+    # symbolic waveforms section
+    st.divider()
+    st.subheader(f"📈 Cronogrames simbòlics — {topo} MCC")
+    st.markdown("Formes d'ona en funció de les variables del circuit. "
+                "Els valors numèrics es mostren a la **Tab 1** i el **Pas a pas**.")
+
+    def symbolic_waveforms(topo_name):
+        """Generate symbolic waveform plots with variable labels on axes."""
+        fig_sym, axes = plt.subplots(4, 2, figsize=(13, 13), facecolor='#0e1117')
+        for ax in axes.flat:
+            ax.set_facecolor('#131825')
+            ax.tick_params(colors='#888', labelsize=8)
+            for sp in ax.spines.values(): sp.set_color('#2a2a3a')
+
+        D_s = 0.45  # symbolic duty for drawing
+
+        def draw_sym(ax, segments, yticks, ylabels, title, color='#4c9be8', xlabel=True):
+            """Draw symbolic piecewise waveform."""
+            for (x0,y0,x1,y1) in segments:
+                ax.plot([x0,x1],[y0,y1], color=color, lw=2.2)
+            # period markers
+            for xv in [0, D_s, 1, 1+D_s, 2]:
+                ax.axvline(xv, color='#334', lw=0.8, ls=':')
+            ax.set_xlim(-0.05, 2.1)
+            ax.set_title(title, fontsize=9.5, color='#ddd', pad=4)
+            ax.set_yticks(yticks)
+            ax.set_yticklabels(ylabels, fontsize=8, color='#aaa')
+            ax.axhline(0, color='#555', lw=0.8)
+            if xlabel:
+                ax.set_xticks([0, D_s, 1, 1+D_s, 2])
+                ax.set_xticklabels(['0','D·T','T','(1+D)T','2T'], fontsize=8, color='#999')
+            ax.grid(True, alpha=0.15, linestyle='--')
+
+        d = D_s
+        d1 = 1 - d  # (1-D)
+
+        if topo_name == "Buck":
+            # iL: trapezoid between IL_min and IL_max, mean IL_med=Io
+            iL_min, iL_max, iL_med = 0.35, 0.65, 0.5
+            draw_sym(axes[0,0],
+                [(0,iL_min, d,iL_max),(d,iL_max,1,iL_min),(1,iL_min,1+d,iL_max),(1+d,iL_max,2,iL_min)],
+                [0, iL_min, iL_med, iL_max],
+                ['0','IL_min (Io−ΔIL/2)','IL_med=Io','IL_max (Io+ΔIL/2)'],
+                "iL — Corrent bobina", '#4caf50')
+            # vL
+            draw_sym(axes[0,1],
+                [(0,0.6,d,0.6),(d,-0.4,1,-0.4),(1,0.6,1+d,0.6),(1+d,-0.4,2,-0.4)],
+                [-0.4, 0, 0.6],
+                ['−Vo','0','Vi−Vo'],
+                "vL — Tensió bobina", '#4caf50')
+            # vSW
+            draw_sym(axes[1,0],
+                [(0,0,d,0),(d,0.9,1,0.9),(1,0,1+d,0),(1+d,0.9,2,0.9)],
+                [0, 0.9],
+                ['0','Vi'],
+                "vSW — Tensió interruptor", '#f0a020')
+            # iSW
+            draw_sym(axes[1,1],
+                [(0,iL_min,d,iL_max),(d,0,1,0),(1,iL_min,1+d,iL_max),(1+d,0,2,0)],
+                [0, iL_min, iL_max],
+                ['0','IL_min','IL_max'],
+                "iSW — Corrent interruptor (MOSFET)", '#f0a020')
+            # vD
+            draw_sym(axes[2,0],
+                [(0,-0.9,d,-0.9),(d,0,1,0),(1,-0.9,1+d,-0.9),(1+d,0,2,0)],
+                [-0.9, 0],
+                ['−Vi','0'],
+                "vD — Tensió díode", '#e05050')
+            # iD
+            draw_sym(axes[2,1],
+                [(0,0,d,0),(d,iL_max,1,iL_min),(1,0,1+d,0),(1+d,iL_max,2,iL_min)],
+                [0, iL_min, iL_max],
+                ['0','IL_min','IL_max'],
+                "iD — Corrent díode", '#e05050')
+            # vC ≈ Vo
+            draw_sym(axes[3,0],
+                [(0,0.85,2,0.85)],
+                [0, 0.85],
+                ['0','Vo'],
+                "vC ≈ Vo — Tensió condensador", '#c897e8')
+            # iC
+            draw_sym(axes[3,1],
+                [(0,iL_min-iL_med,d,iL_max-iL_med),(d,iL_max-iL_med,1,iL_min-iL_med),
+                 (1,iL_min-iL_med,1+d,iL_max-iL_med),(1+d,iL_max-iL_med,2,iL_min-iL_med)],
+                [iL_min-iL_med, 0, iL_max-iL_med],
+                ['−ΔIL/2','0','+ΔIL/2'],
+                "iC — Corrent condensador", '#c897e8')
+
+        elif topo_name == "Boost":
+            iL_min, iL_max, iL_med = 0.55, 0.85, 0.7
+            iD_med = 0.3  # Io
+            draw_sym(axes[0,0],
+                [(0,iL_min,d,iL_max),(d,iL_max,1,iL_min),(1,iL_min,1+d,iL_max),(1+d,iL_max,2,iL_min)],
+                [0, iL_min, iL_med, iL_max],
+                ['0','IL_min','IL_med=Io/(1−D)','IL_max'],
+                "iL — Corrent bobina", '#4caf50')
+            draw_sym(axes[0,1],
+                [(0,0.45,d,0.45),(d,-0.5,1,-0.5),(1,0.45,1+d,0.45),(1+d,-0.5,2,-0.5)],
+                [-0.5, 0, 0.45],
+                ['Vi−Vo','0','Vi'],
+                "vL — Tensió bobina", '#4caf50')
+            draw_sym(axes[1,0],
+                [(0,0,d,0),(d,0.85,1,0.85),(1,0,1+d,0),(1+d,0.85,2,0.85)],
+                [0, 0.85],
+                ['0','Vo'],
+                "vSW — Tensió interruptor", '#f0a020')
+            draw_sym(axes[1,1],
+                [(0,iL_min,d,iL_max),(d,0,1,0),(1,iL_min,1+d,iL_max),(1+d,0,2,0)],
+                [0, iL_min, iL_max],
+                ['0','IL_min','IL_max'],
+                "iSW — Corrent interruptor (MOSFET)", '#f0a020')
+            draw_sym(axes[2,0],
+                [(0,-0.85,d,-0.85),(d,0,1,0),(1,-0.85,1+d,-0.85),(1+d,0,2,0)],
+                [-0.85, 0],
+                ['−Vo','0'],
+                "vD — Tensió díode", '#e05050')
+            draw_sym(axes[2,1],
+                [(0,0,d,0),(d,iL_max,1,iL_min),(1,0,1+d,0),(1+d,iL_max,2,iL_min)],
+                [0, iD_med, iL_min, iL_max],
+                ['0','Io','IL_min','IL_max'],
+                "iD — Corrent díode", '#e05050')
+            draw_sym(axes[3,0],
+                [(0,0.85,2,0.85)],
+                [0, 0.85],
+                ['0','Vo'],
+                "vC ≈ Vo", '#c897e8')
+            draw_sym(axes[3,1],
+                [(0,-iD_med,d,-iD_med),(d,iL_max-iD_med,1,iL_min-iD_med),
+                 (1,-iD_med,1+d,-iD_med),(1+d,iL_max-iD_med,2,iL_min-iD_med)],
+                [-iD_med, 0, iL_max-iD_med],
+                ['-Io','0','IL_max−Io'],
+                "iC — Corrent condensador", '#c897e8')
+
+        else:  # Buck-Boost
+            iL_min, iL_max, iL_med = 0.5, 0.8, 0.65
+            iD_med = 0.28
+            draw_sym(axes[0,0],
+                [(0,iL_min,d,iL_max),(d,iL_max,1,iL_min),(1,iL_min,1+d,iL_max),(1+d,iL_max,2,iL_min)],
+                [0, iL_min, iL_med, iL_max],
+                ['0','IL_min','IL_med=Io/(1−D)','IL_max'],
+                "iL — Corrent bobina", '#4caf50')
+            draw_sym(axes[0,1],
+                [(0,0.45,d,0.45),(d,-0.5,1,-0.5),(1,0.45,1+d,0.45),(1+d,-0.5,2,-0.5)],
+                [-0.5, 0, 0.45],
+                ['−Vo','0','Vi'],
+                "vL — Tensió bobina", '#4caf50')
+            draw_sym(axes[1,0],
+                [(0,0,d,0),(d,0.9,1,0.9),(1,0,1+d,0),(1+d,0.9,2,0.9)],
+                [0, 0.9],
+                ['0','Vi+Vo'],
+                "vSW — Tensió interruptor", '#f0a020')
+            draw_sym(axes[1,1],
+                [(0,iL_min,d,iL_max),(d,0,1,0),(1,iL_min,1+d,iL_max),(1+d,0,2,0)],
+                [0, iL_min, iL_max],
+                ['0','IL_min','IL_max'],
+                "iSW — Corrent interruptor (MOSFET)", '#f0a020')
+            draw_sym(axes[2,0],
+                [(0,-0.9,d,-0.9),(d,0,1,0),(1,-0.9,1+d,-0.9),(1+d,0,2,0)],
+                [-0.9, 0],
+                ['−(Vi+Vo)','0'],
+                "vD — Tensió díode", '#e05050')
+            draw_sym(axes[2,1],
+                [(0,0,d,0),(d,iL_max,1,iL_min),(1,0,1+d,0),(1+d,iL_max,2,iL_min)],
+                [0, iD_med, iL_min, iL_max],
+                ['0','Io','IL_min','IL_max'],
+                "iD — Corrent díode", '#e05050')
+            draw_sym(axes[3,0],
+                [(0,-0.8,2,-0.8)],
+                [-0.8, 0],
+                ['−Vo','0'],
+                "vC ≈ −Vo  (polaritat invertida)", '#c897e8')
+            draw_sym(axes[3,1],
+                [(0,-iD_med,d,-iD_med),(d,iL_max-iD_med,1,iL_min-iD_med),
+                 (1,-iD_med,1+d,-iD_med),(1+d,iL_max-iD_med,2,iL_min-iD_med)],
+                [-iD_med, 0, iL_max-iD_med],
+                ['-Io','0','IL_max−Io'],
+                "iC — Corrent condensador", '#c897e8')
+
+        # common x-axis label and period markers
+        for ax in axes.flat:
+            for xv, lbl in [(0,'0'),(d,'D·T'),(1,'T'),(1+d,'(1+D)·T'),(2,'2T')]:
+                if not ax.texts:
+                    pass
+
+        plt.suptitle(f"Cronogrames simbòlics — {topo_name} MCC  |  2 períodes",
+                     color='#ccc', fontsize=12, y=1.01)
+        plt.tight_layout()
+        return fig_sym
+
+    fig_sym = symbolic_waveforms(topo)
+    st.pyplot(fig_sym)
+    plt.close()
+    st.caption("📌 Els valors als eixos (IL_med, IL_max, IL_min, Vi, Vo...) són simbòlics. "
+               "Els valors numèrics exactes es mostren a la **Tab 1 (📊 Resultats)**.")
 
 # footer
 st.divider()
